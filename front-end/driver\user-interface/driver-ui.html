@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Smart Parking – Customer Booking</title>
+
+  <style>
+    :root{
+      --bg:#f6f8fc;
+      --card:#ffffff;
+      --text:#0f172a;
+      --muted:#475569;
+      --border:#e2e8f0;
+      --shadow: 0 10px 24px rgba(15,23,42,.08);
+      --blue:#2563eb;
+      --green:#16a34a;
+      --red:#ef4444;
+      --amber:#f59e0b;
+      --slot:#f1f5f9;
+      --lane:#0b1220;
+      --laneText:#cbd5e1;
+    }
+
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
+    header{position:sticky;top:0;z-index:10;background:rgba(246,248,252,.85);backdrop-filter: blur(10px);border-bottom:1px solid var(--border)}
+    .wrap{max-width:1100px;margin:0 auto;padding:14px 16px}
+    h1{margin:0;font-size:18px}
+    .sub{margin-top:6px;color:var(--muted);font-size:12.5px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .pill{padding:8px 10px;border:1px solid var(--border);border-radius:999px;background:#fff;color:var(--muted);font-size:12px;box-shadow:0 1px 0 rgba(15,23,42,.03)}
+    .grid{display:grid;grid-template-columns: 1.2fr .8fr;gap:14px;margin-top:14px}
+    @media (max-width:980px){.grid{grid-template-columns:1fr}}
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:16px;
+      box-shadow: var(--shadow);
+      padding:14px;
+    }
+
+    /* Parking lot */
+    .lotHeader{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+    .lotTitle{font-weight:800}
+    .lotLegend{display:flex;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+    .dot{width:10px;height:10px;border-radius:50%}
+    .dFree{background:rgba(22,163,74,.25);border:1px solid rgba(22,163,74,.55)}
+    .dOcc{background:rgba(239,68,68,.25);border:1px solid rgba(239,68,68,.55)}
+    .dRes{background:rgba(245,158,11,.25);border:1px solid rgba(245,158,11,.55)}
+
+    .lot{
+      margin-top:12px;
+      border-radius:16px;
+      overflow:hidden;
+      border:1px solid var(--border);
+      background: linear-gradient(180deg, #ffffff, #f8fafc);
+    }
+
+    .lane{
+      background: var(--lane);
+      color: var(--laneText);
+      padding:10px 12px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      font-size:12px;
+      letter-spacing:.4px;
+    }
+
+    .slots{
+      padding:14px;
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:14px;
+    }
+    @media (max-width:720px){.slots{grid-template-columns:1fr}}
+
+    .slot{
+      position:relative;
+      background:var(--slot);
+      border:2px dashed #cbd5e1;
+      border-radius:16px;
+      padding:14px;
+      min-height:210px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      box-shadow: inset 0 0 0 1px rgba(15,23,42,.02);
+    }
+
+    .slotTop{display:flex;justify-content:space-between;align-items:center}
+    .slotName{font-weight:800}
+
+    .badge{
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:800;
+      border:1px solid var(--border);
+      background:#fff;
+      color:var(--muted);
+    }
+    .bFree{border-color:rgba(22,163,74,.35);background:rgba(22,163,74,.10);color:var(--green)}
+    .bOcc{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.10);color:var(--red)}
+    .bRes{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.12);color:#b45309}
+
+    .slotMid{display:flex;gap:12px;align-items:center;margin-top:10px}
+    .car{
+      width:74px;height:42px;border-radius:14px;
+      background: linear-gradient(180deg,#e2e8f0,#cbd5e1);
+      border:1px solid rgba(15,23,42,.10);
+      position:relative;
+      box-shadow: 0 8px 16px rgba(15,23,42,.10);
+    }
+    .car:before,.car:after{
+      content:"";position:absolute;top:10px;width:12px;height:12px;border-radius:50%;
+      background:#0f172a;opacity:.25
+    }
+    .car:before{left:10px}
+    .car:after{right:10px}
+    .value{
+      font-size:36px;font-weight:900;line-height:1;
+    }
+    .hint{color:var(--muted);font-size:12.5px;margin-top:6px}
+
+    .btnRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    button{
+      padding:10px 12px;border-radius:12px;border:1px solid var(--border);
+      background:#fff;color:var(--text);cursor:pointer;font-weight:700;
+      box-shadow:0 1px 0 rgba(15,23,42,.03);
+    }
+    button.primary{background:var(--blue);border-color:rgba(37,99,235,.35);color:#fff}
+    button.secondary{background:#fff;opacity:.9}
+    button:disabled{opacity:.45;cursor:not-allowed}
+
+    /* Right panel */
+    .sectionTitle{font-weight:900;margin:0 0 6px}
+    .small{color:var(--muted);font-size:12.5px}
+    input{
+      width:100%;
+      background:#fff;border:1px solid var(--border);
+      border-radius:12px;padding:10px 12px;outline:none;
+      font-size:14px;
+    }
+    .fieldGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    @media (max-width:520px){.fieldGrid{grid-template-columns:1fr}}
+
+    .divider{height:1px;background:var(--border);margin:12px 0}
+
+    .codebox{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      background:#f8fafc;border:1px solid var(--border);
+      padding:10px;border-radius:12px;word-break:break-all;
+      color:#0f172a;
+    }
+
+    .aiBox{
+      border:1px solid var(--border);
+      background: linear-gradient(180deg,#ffffff,#f8fafc);
+      border-radius:16px;
+      padding:12px;
+      margin-top:12px;
+    }
+    .aiRow{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+    .aiBig{font-weight:900}
+    .aiText{color:var(--muted);font-size:13px;margin-top:6px}
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="wrap">
+    <h1>Smart Parking – Customer Booking</h1>
+    <div class="sub">
+      <!--Live: <code>/parking</code> · History: <code>/bookings/&lt;id&gt;</code> · Lock: <code>/activeBookings</code> · Meta: <code>/meta</code>-->
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div class="pill" id="conn">Status: Connecting…</div>
+      <div class="pill" id="last">Last update: —</div>
+      <div class="pill" id="payState">Payment: Not paid</div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="grid">
+
+    <!-- LEFT: Parking lot -->
+    <section class="card">
+      <div class="lotHeader">
+        <div>
+          <div class="lotTitle">Parking Lot View</div>
+          <div class="small">Tap a slot to book after demo payment.</div>
+        </div>
+        <div class="lotLegend">
+          <span class="row"><span class="dot dFree"></span> Free</span>
+          <span class="row"><span class="dot dOcc"></span> Occupied</span>
+          <span class="row"><span class="dot dRes"></span> Reserved</span>
+        </div>
+      </div>
+
+      <div class="aiBox">
+        <div class="aiRow">
+          <div>
+            <div class="aiBig">AI Recommendation</div>
+            <div class="aiText" id="aiText">Waiting for live data…</div>
+          </div>
+          <button id="bookRecommended" class="primary" disabled>Book Recommended Slot</button>
+        </div>
+      </div>
+
+      <div class="lot">
+        <div class="lane">
+          <span>ENTRY → DRIVE LANE</span>
+          <span>EXIT →</span>
+        </div>
+
+        <div class="slots">
+
+          <!-- SLOT 1 -->
+          <div class="slot" id="card1">
+            <div>
+              <div class="slotTop">
+                <div class="slotName">Slot 1</div>
+                <span class="badge" id="b1">—</span>
+              </div>
+
+              <div class="slotMid">
+                <div class="car" aria-hidden="true"></div>
+                <div>
+                  <div class="value" id="v1">—</div>
+                  <div class="hint" id="h1">0 = Free, 1 = Occupied</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="btnRow">
+              <button id="book1" class="primary">Book Slot 1</button>
+              <button id="cancel1" class="secondary">Cancel</button>
+            </div>
+          </div>
+
+          <!-- SLOT 2 -->
+          <div class="slot" id="card2">
+            <div>
+              <div class="slotTop">
+                <div class="slotName">Slot 2</div>
+                <span class="badge" id="b2">—</span>
+              </div>
+
+              <div class="slotMid">
+                <div class="car" aria-hidden="true"></div>
+                <div>
+                  <div class="value" id="v2">—</div>
+                  <div class="hint" id="h2">0 = Free, 1 = Occupied</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="btnRow">
+              <button id="book2" class="primary">Book Slot 2</button>
+              <button id="cancel2" class="secondary">Cancel</button>
+            </div>
+          </div>
+
+          <!-- SLOT 3 -->
+          <div class="slot" id="card3">
+            <div>
+              <div class="slotTop">
+                <div class="slotName">Slot 3</div>
+                <span class="badge" id="b3">—</span>
+              </div>
+
+              <div class="slotMid">
+                <div class="car" aria-hidden="true"></div>
+                <div>
+                  <div class="value" id="v3">—</div>
+                  <div class="hint" id="h3">0 = Free, 1 = Occupied</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="btnRow">
+              <button id="book3" class="primary">Book Slot 3</button>
+              <button id="cancel3" class="secondary">Cancel</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Payment + User details + Booking ID -->
+    <aside class="card">
+      <p class="sectionTitle">Step 1: Demo Payment</p>
+      <p class="small">Complete demo payment before booking.</p>
+      <div class="row" style="justify-content:space-between;margin-top:10px">
+        <div class="small">Txn: <b id="txnText">—</b></div>
+        <div class="row">
+          <button id="payBtn" class="primary">Pay ₹10</button>
+          <button id="resetPayBtn">Reset</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <p class="sectionTitle">Step 2: Details</p>
+      <p class="small">Saved so staff can verify at gate. Booking expires after <b>5 minutes</b> if not checked-in.</p>
+
+      <div class="fieldGrid">
+        <div>
+          <div class="small" style="margin-bottom:6px">Name</div>
+          <input id="name" placeholder="Your name" value="ABC" />
+        </div>
+        <div>
+          <div class="small" style="margin-bottom:6px">Vehicle No</div>
+          <input id="vehicle" placeholder="KL 11 AB 1234" value="111" />
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <p class="sectionTitle">Your Booking ID</p>
+      <p class="small">Show this to security staff for verification.</p>
+
+      <div class="codebox" id="myIdBox" style="margin-top:10px">—</div>
+      <div class="small" id="myIdStatus" style="margin-top:8px">Status: —</div>
+
+      <div class="row" style="margin-top:12px;justify-content:space-between">
+        <button id="copyIdBtn">Copy ID</button>
+        <button id="clearLocalBtn">Clear My ID</button>
+      </div>
+    </aside>
+
+  </div>
+</main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+  import {
+    getDatabase, ref, onValue, push, set, update, remove, get
+  } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+  // ✅ Your Firebase web config
+  const firebaseConfig = {
+    apiKey: "AIzaSyDTAas1droAkeShhrnvoJhDCc74uJQQhEA",
+    authDomain: "esp32-parking-8feef.firebaseapp.com",
+    databaseURL: "https://esp32-parking-8feef-default-rtdb.firebaseio.com",
+    projectId: "esp32-parking-8feef",
+    storageBucket: "esp32-parking-8feef.appspot.com",
+    messagingSenderId: "89076263554",
+    appId: "1:89076263554:web:61669b435d5c272307e29b",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  const el = (id) => document.getElementById(id);
+  const nowMs = () => Date.now();
+
+  // ---- local booking identity (demo) ----
+  const LS_KEY = "SMART_PARKING_BOOKING_ID";
+  function getMyBookingId(){ return localStorage.getItem(LS_KEY) || ""; }
+  function setMyBookingId(id){ localStorage.setItem(LS_KEY, id); renderMyId(); }
+  function clearMyBookingId(){ localStorage.removeItem(LS_KEY); renderMyId(); }
+
+  function renderMyId() {
+    const id = getMyBookingId();
+    el("myIdBox").textContent = id ? id : "—";
+  }
+
+  // ---- demo payment ----
+  let paid = false;
+  let txn = "";
+
+  function setPaidState(v) {
+    paid = v;
+    el("payState").textContent = paid ? "Payment: Paid ₹10" : "Payment: Not paid";
+    el("txnText").textContent = txn || "—";
+    renderAll();
+    computeRecommendation();
+  }
+
+  el("payBtn").onclick = () => {
+    txn = "DEMO-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+    setPaidState(true);
+    alert("Demo payment success ✅");
+  };
+
+  el("resetPayBtn").onclick = () => {
+    paid = false;
+    txn = "";
+    setPaidState(false);
+    alert("Payment reset.");
+  };
+
+  // ---- live state ----
+  let parking = { slot1: 0, slot2: 0, slot3: 0 };
+  let active = { slot1: null, slot2: null, slot3: null };
+  let lastChange = { slot1: 0, slot2: 0, slot3: 0 };
+
+  let recommendedSlot = null;
+
+  function paintBadge(n, type, text){
+    const b = el("b"+n);
+    b.textContent = text;
+    b.className = "badge " + (type === "free" ? "bFree" : type === "occ" ? "bOcc" : "bRes");
+  }
+
+  function setSlotUI(n) {
+    const key = "slot" + n;
+    const occ = Number(parking[key] ?? 0);
+    const lock = active[key]; // booking id or null
+
+    el("v"+n).textContent = occ;
+    const hint = el("h"+n);
+
+    if (occ === 1) {
+      paintBadge(n, "occ", "OCCUPIED");
+      hint.textContent = "Sensor says occupied. Booking disabled.";
+    } else if (lock) {
+      paintBadge(n, "res", "RESERVED");
+      hint.textContent = "Reserved (booking ID exists).";
+    } else {
+      paintBadge(n, "free", "FREE");
+      hint.textContent = paid ? "Free. You can book now." : "Free. Complete demo payment to book.";
+    }
+
+    const canBook = paid && occ === 0 && !lock;
+    el("book"+n).disabled = !canBook;
+
+    const myId = getMyBookingId();
+    const canCancel = !!myId && lock === myId;
+    el("cancel"+n).disabled = !canCancel;
+  }
+
+  function renderAll() { [1,2,3].forEach(setSlotUI); }
+
+  // ---- IMPORTANT FIX: if my booking was cancelled/checked-in, clear localStorage ----
+  async function refreshMyBookingStatus() {
+    const id = getMyBookingId();
+    if (!id) {
+      el("myIdStatus").textContent = "Status: —";
+      return;
+    }
+    const snap = await get(ref(db, `bookings/${id}`));
+    if (!snap.exists()) {
+      el("myIdStatus").textContent = "Status: Not found (cleared)";
+      clearMyBookingId();
+      return;
+    }
+    const status = String(snap.val().status || "");
+    el("myIdStatus").textContent = "Status: " + status;
+
+    if (status !== "reserved") {
+      clearMyBookingId();
+    }
+  }
+
+  // ---- booking actions ----
+  async function bookSlot(n) {
+    if (!paid) return alert("Complete demo payment first.");
+
+    const name = el("name").value.trim();
+    const vehicle = el("vehicle").value.trim();
+    if (!name || !vehicle) return alert("Enter Name and Vehicle No.");
+
+    const key = "slot" + n;
+    if (Number(parking[key] ?? 0) === 1) return alert("Slot is occupied. Cannot book.");
+    if (active[key]) return alert("Slot already reserved.");
+
+    await refreshMyBookingStatus();
+    if (getMyBookingId()) return alert("You already have an active booking ID. Cancel/check-in first.");
+
+    const expiresAt = nowMs() + 5 * 60 * 1000;
+
+    const bookingRef = push(ref(db, "bookings"));
+    const bookingId = bookingRef.key;
+
+    await set(bookingRef, {
+      slot: n,
+      status: "reserved",
+      paid: true,
+      amount: 10,
+      txn,
+      customerName: name,
+      vehicleNo: vehicle,
+      createdAt: nowMs(),
+      expiresAt
+    });
+
+    await set(ref(db, `activeBookings/slot${n}`), bookingId);
+
+    setMyBookingId(bookingId);
+    alert("Booked ✅ Booking ID created.");
+    await refreshMyBookingStatus();
+  }
+
+  async function cancelMyBooking(n) {
+    const myId = getMyBookingId();
+    if (!myId) return alert("No active booking ID found.");
+
+    const lockSnap = await get(ref(db, `activeBookings/slot${n}`));
+    if (!lockSnap.exists() || lockSnap.val() !== myId) {
+      alert("This slot is not reserved by your ID.");
+      await refreshMyBookingStatus();
+      return;
+    }
+
+    await update(ref(db, `bookings/${myId}`), { status: "cancelled", cancelledAt: nowMs() });
+    await remove(ref(db, `activeBookings/slot${n}`));
+
+    alert("Booking cancelled.");
+    clearMyBookingId();
+    await refreshMyBookingStatus();
+  }
+
+  [1,2,3].forEach(n => {
+    el("book"+n).onclick = () => bookSlot(n);
+    el("cancel"+n).onclick = () => cancelMyBooking(n);
+  });
+
+  el("copyIdBtn").onclick = async () => {
+    const id = getMyBookingId();
+    if (!id) return alert("No booking ID.");
+    await navigator.clipboard.writeText(id);
+    alert("Booking ID copied.");
+  };
+
+  el("clearLocalBtn").onclick = () => {
+    clearMyBookingId();
+    alert("Cleared your local booking ID.");
+  };
+
+  // ---- AI recommendation (longest-free using meta timestamps) ----
+  function computeRecommendation() {
+    const candidates = [1,2,3].filter(n => {
+      const key = "slot"+n;
+      const occ = Number(parking[key] ?? 0) === 1;
+      const res = !!active[key];
+      return !occ && !res;
+    });
+
+    if (!candidates.length) {
+      recommendedSlot = null;
+      el("aiText").textContent = "No free slot available (or all free slots are reserved).";
+      el("bookRecommended").disabled = true;
+      return;
+    }
+
+    candidates.sort((a,b) => (lastChange["slot"+a] || 0) - (lastChange["slot"+b] || 0));
+    recommendedSlot = candidates[0];
+
+    const ageSec = lastChange["slot"+recommendedSlot]
+      ? Math.max(0, Math.floor((nowMs() - lastChange["slot"+recommendedSlot]) / 1000))
+      : 0;
+
+    el("aiText").textContent =
+      `Recommended: Slot ${recommendedSlot} (free & not reserved). ` +
+      (ageSec ? `Reason: longest free (~${ageSec}s).` : "");
+
+    el("bookRecommended").disabled = !(paid); // also must be paid
+  }
+
+  el("bookRecommended").onclick = () => {
+    if (!recommendedSlot) return;
+    bookSlot(recommendedSlot);
+  };
+
+  // ---- expiry sweeper (client-side demo) ----
+  async function expireIfNeeded() {
+    const snap = await get(ref(db, "activeBookings"));
+    const locks = snap.val() || {};
+    for (const k of ["slot1","slot2","slot3"]) {
+      const bookingId = locks[k];
+      if (!bookingId) continue;
+
+      const bSnap = await get(ref(db, `bookings/${bookingId}`));
+      if (!bSnap.exists()) {
+        await remove(ref(db, `activeBookings/${k}`));
+        continue;
+      }
+
+      const b = bSnap.val();
+      const status = String(b.status || "");
+      const expiresAt = Number(b.expiresAt || 0);
+
+      if (status === "reserved" && expiresAt && nowMs() > expiresAt) {
+        await update(ref(db, `bookings/${bookingId}`), { status: "expired", expiredAt: nowMs() });
+        await remove(ref(db, `activeBookings/${k}`));
+      }
+    }
+  }
+
+  // ---- listeners ----
+  onValue(ref(db, "parking"), (snap) => {
+    el("conn").textContent = "Status: Connected";
+    parking = snap.val() || { slot1:0, slot2:0, slot3:0 };
+    renderAll();
+    el("last").textContent = "Last update: " + new Date().toLocaleTimeString();
+    computeRecommendation();
+  }, (err) => {
+    el("conn").textContent = "Status: Error - " + err.code;
+    console.error(err);
+  });
+
+  onValue(ref(db, "activeBookings"), (snap) => {
+    active = snap.val() || { slot1:null, slot2:null, slot3:null };
+    renderAll();
+    computeRecommendation();
+  });
+
+  onValue(ref(db, "meta"), (snap) => {
+    const meta = snap.val() || {};
+    [1,2,3].forEach(n => {
+      const key = "slot"+n;
+      lastChange[key] = Number(meta[key]?.lastChange ?? 0);
+    });
+    computeRecommendation();
+  });
+
+  // initial
+  renderMyId();
+  setPaidState(false);
+  refreshMyBookingStatus();
+  setInterval(expireIfNeeded, 8000);
+</script>
+</body>
+</html>
