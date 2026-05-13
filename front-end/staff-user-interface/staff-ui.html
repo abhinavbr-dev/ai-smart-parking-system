@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Smart Parking – Gate Verification</title>
+
+<style>
+:root{
+  --bg:#f6f8fc;
+  --card:#ffffff;
+  --text:#0f172a;
+  --muted:#475569;
+  --border:#e2e8f0;
+  --green:#16a34a;
+  --red:#ef4444;
+  --amber:#f59e0b;
+  --blue:#2563eb;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto;
+  background:var(--bg);
+  color:var(--text);
+}
+
+.wrap{
+  max-width:800px;
+  margin:0 auto;
+  padding:20px;
+}
+
+header{
+  text-align:center;
+  margin-bottom:20px;
+}
+
+h1{
+  margin:0;
+  font-size:22px;
+}
+
+.sub{
+  margin-top:6px;
+  color:var(--muted);
+  font-size:13px;
+}
+
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:18px;
+  box-shadow:0 10px 25px rgba(0,0,0,.05);
+}
+
+input{
+  width:100%;
+  padding:12px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  font-size:15px;
+  margin-top:8px;
+}
+
+button{
+  padding:12px 16px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:white;
+  font-weight:700;
+  cursor:pointer;
+}
+
+button.primary{
+  background:var(--blue);
+  color:white;
+  border-color:var(--blue);
+}
+
+button.success{
+  background:var(--green);
+  color:white;
+  border-color:var(--green);
+}
+
+button.danger{
+  background:var(--red);
+  color:white;
+  border-color:var(--red);
+}
+
+.row{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+
+.resultBox{
+  margin-top:18px;
+  padding:18px;
+  border-radius:16px;
+  border:2px dashed var(--border);
+  text-align:center;
+}
+
+.statusBig{
+  font-size:28px;
+  font-weight:900;
+  margin-bottom:8px;
+}
+
+.statusValid{
+  color:var(--green);
+}
+
+.statusInvalid{
+  color:var(--red);
+}
+
+.detail{
+  margin-top:6px;
+  font-size:14px;
+  color:var(--muted);
+}
+
+.pinBox{
+  margin-bottom:20px;
+}
+
+.pinStatus{
+  font-size:13px;
+  margin-top:6px;
+}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+<header>
+<h1>🚗 Smart Parking – Gate Verification</h1>
+<div class="sub">Verify Booking ID and allow vehicle entry</div>
+</header>
+
+<div class="card pinBox">
+<strong>Staff PIN</strong>
+<input type="password" id="staffPin" placeholder="Enter staff PIN">
+<div class="row">
+<button id="unlockBtn" class="primary">Unlock</button>
+</div>
+<div id="pinStatus" class="pinStatus"></div>
+</div>
+
+<div class="card">
+<strong>Enter Booking ID</strong>
+<input id="bookingInput" placeholder="Paste booking ID here">
+
+<div class="row">
+<button id="checkBtn" class="primary">Verify Booking</button>
+<button id="checkinBtn" class="success">Check-In</button>
+<button id="cancelBtn" class="danger">Cancel</button>
+</div>
+
+<div class="resultBox" id="resultBox">
+<div class="statusBig" id="statusText">Waiting for ID...</div>
+<div id="details"></div>
+</div>
+</div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getDatabase, ref, get, update, remove } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDTAas1droAkeShhrnvoJhDCc74uJQQhEA",
+  authDomain: "esp32-parking-8feef.firebaseapp.com",
+  databaseURL: "https://esp32-parking-8feef-default-rtdb.firebaseio.com",
+  projectId: "esp32-parking-8feef",
+  storageBucket: "esp32-parking-8feef.appspot.com",
+  messagingSenderId: "89076263554",
+  appId: "1:89076263554:web:61669b435d5c272307e29b",
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const el = id => document.getElementById(id);
+const nowMs = () => Date.now();
+
+let unlocked = false;
+const STAFF_PIN = "1234"; // Change this
+
+el("unlockBtn").onclick = () => {
+  if(el("staffPin").value === STAFF_PIN){
+    unlocked = true;
+    el("pinStatus").innerText = "Access Granted ✅";
+    el("pinStatus").style.color = "green";
+  }else{
+    el("pinStatus").innerText = "Invalid PIN ❌";
+    el("pinStatus").style.color = "red";
+  }
+};
+
+async function verifyBooking(){
+  if(!unlocked){
+    alert("Unlock with staff PIN first.");
+    return;
+  }
+
+  const id = el("bookingInput").value.trim();
+  if(!id) return;
+
+  const snap = await get(ref(db, "bookings/" + id));
+
+  if(!snap.exists()){
+    showInvalid("Booking not found");
+    return;
+  }
+
+  const data = snap.val();
+  if(data.status !== "reserved"){
+    showInvalid("Status: " + data.status);
+    return;
+  }
+
+  showValid(data);
+}
+
+function showValid(data){
+  el("statusText").innerText = "VALID BOOKING ✅";
+  el("statusText").className = "statusBig statusValid";
+  el("details").innerHTML = `
+    <div class="detail">Slot: ${data.slot}</div>
+    <div class="detail">Customer: ${data.customerName}</div>
+    <div class="detail">Vehicle: ${data.vehicleNo}</div>
+  `;
+}
+
+function showInvalid(msg){
+  el("statusText").innerText = "INVALID ❌";
+  el("statusText").className = "statusBig statusInvalid";
+  el("details").innerHTML = `<div class="detail">${msg}</div>`;
+}
+
+el("checkBtn").onclick = verifyBooking;
+
+el("checkinBtn").onclick = async () => {
+  const id = el("bookingInput").value.trim();
+  if(!id) return;
+
+  const snap = await get(ref(db, "bookings/" + id));
+  if(!snap.exists()) return;
+
+  const data = snap.val();
+  if(data.status !== "reserved"){
+    alert("Cannot check-in.");
+    return;
+  }
+
+  await update(ref(db, "bookings/" + id), {
+    status: "checked_in",
+    checkedInAt: nowMs()
+  });
+
+  await remove(ref(db, "activeBookings/slot" + data.slot));
+
+  showValid({ ...data, status: "checked_in" });
+  alert("Checked-in successfully ✅");
+};
+
+el("cancelBtn").onclick = async () => {
+  const id = el("bookingInput").value.trim();
+  if(!id) return;
+
+  const snap = await get(ref(db, "bookings/" + id));
+  if(!snap.exists()) return;
+
+  const data = snap.val();
+
+  await update(ref(db, "bookings/" + id), {
+    status: "cancelled",
+    cancelledAt: nowMs()
+  });
+
+  await remove(ref(db, "activeBookings/slot" + data.slot));
+
+  showInvalid("Booking cancelled");
+};
+</script>
+
+</body>
+</html>
