@@ -1,4 +1,3 @@
-```markdown
 # Real-Time Smart Parking System Using AI, Cloud Computing and IoT
 
 ## Overview
@@ -156,5 +155,4 @@ MCA Project – Smart Parking System
 # License
 
 This project is developed for academic and educational purposes.
-```
 
